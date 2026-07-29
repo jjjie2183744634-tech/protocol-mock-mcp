@@ -1,17 +1,15 @@
 # 客户定制协议 Mock Server MCP
 
-将水表/终端远传协议的 Mock Server 封装为 MCP 工具，供 AI（Claude Code、TRAE 等支持 MCP 的客户端）在对话中直接调用。采用插件化架构，支持任意客户定制协议。
+固件开发完成后的**协议调试验证工具**。模拟平台服务器侧，接收终端上传的数据帧并解析验证，回复 ACK 测试设备接收，下发指令测试设备响应。支持任意客户定制协议，通过插件扩展。
 
-## 功能
+## 典型使用场景
 
-- 启动/停止 UDP 监听，接收水表终端上传的数据帧
-- 自动回复 ACK，支持 ACK 规则配置
-- ACK 抑制测试（前 N 次不回 ACK，测试设备重传机制）
-- 手动发送 UDP 数据帧
-- 预设指令管理（重启、阀门控制、参数查询、预置量）
-- 实时日志查询与过滤
-- 可选启动 Web 浏览器界面，与 AI 操作实时同步
-- **插件化协议架构**：添加新协议只需写一个 Python 文件 + 改一行配置
+- **上传验证**：设备按定制协议组帧上传，查看解析结果是否正确（地址、功能码、数据域各字段是否符合协议文档）
+- **ACK 验证**：Mock Server 按规则回复 ACK，验证设备是否正确接收、ACK 内容是否匹配
+- **指令下发验证**：平台下发指令（重启、参数查询、阀门控制等），验证设备是否正确响应
+- **重传机制测试**：ACK 抑制功能，前 N 次不回 ACK，观察设备是否按协议设定的次数和间隔重传
+- **异常帧测试**：手动发送异常帧，验证设备容错能力
+- **AI 辅助分析**：AI 读取解析后的日志，自动比对协议文档，辅助定位字段错位、校验错误等问题
 
 ## 快速开始
 
@@ -56,37 +54,41 @@ python /path/to/protocol-mock-mcp/install_mcp.py /your/project/dir
 
 > 仓库自带的 `.mcp.json` 使用相对路径 `./mcp_server.py`，如果你的 AI 客户端支持相对路径且工作目录就是仓库目录，可以直接复制使用。
 
-### 3. 使用
+### 3. 调试流程
 
-用支持 MCP 的 AI 客户端（Claude Code、TRAE 等）打开配置了 `.mcp.json` 的项目目录，AI 会自动发现工具。对话中直接说：
+用支持 MCP 的 AI 客户端（Claude Code、TRAE 等）打开配置了 `.mcp.json` 的项目目录，AI 会自动发现工具。典型调试流程：
 
-- "启动 Web 界面和 UDP 监听"（浏览器实时查看 + AI 同时操作）
-- "查看最近的通信日志"
-- "开启 ACK 抑制，抑制 3 次"
-- "添加一条重启指令的预设"
+```
+1. "启动 Web 界面和 UDP 监听"     → 浏览器实时显示 + AI 同时可读
+2. 设备上电，开始上传数据帧          → 浏览器实时查看解析结果
+3. "查看最近的通信日志"             → AI 读取日志，分析字段是否正确
+4. "添加一条参数查询指令的预设"      → 设备下次上传时自动下发
+5. "开启 ACK 抑制，抑制 3 次"       → 测试设备重传机制
+6. "发送一帧测试数据到设备"          → 手动下发异常帧测试容错
+```
 
-**Web 界面与 AI 同步：** `mock_start_web_ui` 启动后，浏览器显示的内容和 AI 通过 `mock_get_logs` 读到的是同一份内存数据，SSE 实时推送无需刷新。
+**Web 界面与 AI 同步：** `mock_start_web_ui` 启动后，浏览器显示的内容和 AI 通过 `mock_get_logs` 读到的是同一份内存数据，SSE 实时推送无需刷新。你肉眼盯着浏览器看实时数据流，同时让 AI 帮你分析字段对不对。
 
 ## 可用工具（16 个）
 
-| 工具 | 功能 |
-|------|------|
-| mock_get_protocol_info | 获取协议信息和指令定义 |
-| mock_get_state | 获取运行状态 |
-| mock_start_listen | 启动 UDP 监听 |
-| mock_stop_listen | 停止 UDP 监听 |
-| mock_send_udp | 手动发送 UDP 数据 |
-| mock_get_logs | 获取通信日志 |
-| mock_clear_logs | 清空日志 |
-| mock_get_rules | 获取 ACK 规则 |
-| mock_toggle_rule | 启用/禁用规则 |
-| mock_save_rules | 保存规则 |
-| mock_set_ack_suppress | 设置 ACK 抑制测试 |
-| mock_add_pending_command | 添加预设指令 |
-| mock_get_pending_commands | 获取预设指令列表 |
-| mock_clear_pending_commands | 清空预设指令 |
-| mock_start_web_ui | 启动 Web 界面 |
-| mock_stop_web_ui | 停止 Web 界面 |
+| 工具 | 功能 | 调试用途 |
+|------|------|----------|
+| mock_get_protocol_info | 获取协议信息和指令定义 | 查看当前协议支持的指令和参数 |
+| mock_get_state | 获取运行状态 | 确认监听是否运行、收包计数 |
+| mock_start_listen | 启动 UDP 监听 | 开始接收设备上传帧 |
+| mock_stop_listen | 停止 UDP 监听 | 停止接收 |
+| mock_send_udp | 手动发送 UDP 数据 | 主动下发测试帧或异常帧 |
+| mock_get_logs | 获取通信日志 | AI 分析解析结果是否正确 |
+| mock_clear_logs | 清空日志 | 清除上一轮测试数据 |
+| mock_get_rules | 获取 ACK 规则 | 查看 ACK 回复规则 |
+| mock_toggle_rule | 启用/禁用规则 | 临时关闭某条 ACK 测试设备重传 |
+| mock_save_rules | 保存规则 | 修改 ACK 内容后持久化 |
+| mock_set_ack_suppress | 设置 ACK 抑制 | 测试设备重传次数和间隔 |
+| mock_add_pending_command | 添加预设指令 | 设备下次上传时自动下发指令 |
+| mock_get_pending_commands | 获取预设指令列表 | 查看待下发的指令 |
+| mock_clear_pending_commands | 清空预设指令 | 取消待下发指令 |
+| mock_start_web_ui | 启动 Web 界面 | 浏览器实时查看数据流 |
+| mock_stop_web_ui | 停止 Web 界面 | 关闭 Web 界面 |
 
 ## 扩展：添加新协议插件
 
