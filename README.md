@@ -1,4 +1,4 @@
-﻿# 淄博协议 Mock Server MCP
+# 淄博协议 Mock Server MCP
 
 将淄博远传水表协议的 Mock Server 封装为 MCP 工具，供 AI（Claude Code、TRAE 等支持 MCP 的客户端）在对话中直接调用。
 
@@ -67,6 +67,10 @@ pip install mcp
 | zibo_start_web_ui | 启动 Web 界面 |
 | zibo_stop_web_ui | 停止 Web 界面 |
 
+## 扩展：添加新协议插件
+
+本项目采用插件化架构，添加新协议只需写一个 Python 文件 + 改一行配置。详见 [插件开发指南](PLUGIN_GUIDE.md)。
+
 ## 文件说明
 
 ```
@@ -76,6 +80,7 @@ pip install mcp
 ├── protocol_base.py       # 协议抽象基类
 ├── config.json            # 配置文件
 ├── mock_server.html       # Web 界面
+├── PLUGIN_GUIDE.md        # 插件开发指南
 └── protocols/
     ├── __init__.py
     └── zibo.py            # 淄博协议实现
