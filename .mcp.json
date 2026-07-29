@@ -2,7 +2,7 @@
   "mcpServers": {
     "protocol_mock": {
       "command": "python",
-      "args": ["c:\\Users\\Administrator\\Documents\\zibo-mock-mcp\\mcp_server.py"]
+      "args": ["./mcp_server.py"]
     }
   }
 }

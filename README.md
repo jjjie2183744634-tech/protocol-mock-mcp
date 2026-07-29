@@ -10,7 +10,7 @@
 - 手动发送 UDP 数据帧
 - 预设指令管理（重启、阀门控制、参数查询、预置量）
 - 实时日志查询与过滤
-- 可选启动 Web 浏览器界面
+- 可选启动 Web 浏览器界面，与 AI 操作实时同步
 - **插件化协议架构**：添加新协议只需写一个 Python 文件 + 改一行配置
 
 ## 快速开始
@@ -23,7 +23,25 @@ pip install mcp
 
 ### 2. 配置 MCP
 
-在你的项目根目录创建 `.mcp.json`：
+有两种方式：
+
+**方式 A：自动配置（推荐）**
+
+在你希望使用 MCP 的项目目录下运行：
+
+```bash
+python /path/to/protocol-mock-mcp/install_mcp.py
+```
+
+脚本会自动检测 Python 路径和 `mcp_server.py` 的绝对路径，在当前目录生成 `.mcp.json`。也可以指定目标目录：
+
+```bash
+python /path/to/protocol-mock-mcp/install_mcp.py /your/project/dir
+```
+
+**方式 B：手动配置**
+
+在你的项目根目录创建 `.mcp.json`，填入 `mcp_server.py` 的实际路径：
 
 ```json
 {
@@ -36,16 +54,18 @@ pip install mcp
 }
 ```
 
-将 `args` 中的路径替换为本仓库 `mcp_server.py` 的实际路径。
+> 仓库自带的 `.mcp.json` 使用相对路径 `./mcp_server.py`，如果你的 AI 客户端支持相对路径且工作目录就是仓库目录，可以直接复制使用。
 
 ### 3. 使用
 
-用支持 MCP 的 AI 客户端（Claude Code、TRAE 等）打开项目目录，AI 会自动发现工具。对话中直接说：
+用支持 MCP 的 AI 客户端（Claude Code、TRAE 等）打开配置了 `.mcp.json` 的项目目录，AI 会自动发现工具。对话中直接说：
 
-- "启动 UDP 监听，端口 30088"
+- "启动 Web 界面和 UDP 监听"（浏览器实时查看 + AI 同时操作）
 - "查看最近的通信日志"
 - "开启 ACK 抑制，抑制 3 次"
 - "添加一条重启指令的预设"
+
+**Web 界面与 AI 同步：** `mock_start_web_ui` 启动后，浏览器显示的内容和 AI 通过 `mock_get_logs` 读到的是同一份内存数据，SSE 实时推送无需刷新。
 
 ## 可用工具（16 个）
 
@@ -75,7 +95,8 @@ pip install mcp
 ## 文件说明
 
 ```
-├── .mcp.json              # MCP 配置示例
+├── .mcp.json              # MCP 配置（相对路径，可按需修改）
+├── install_mcp.py         # 自动配置脚本（推荐使用）
 ├── mcp_server.py          # MCP Server 主体（16 个工具）
 ├── server.py              # Mock Server 核心逻辑
 ├── protocol_base.py       # 协议抽象基类
