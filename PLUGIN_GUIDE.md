@@ -1,4 +1,4 @@
-# 协议插件开发指南
+﻿# 协议插件开发指南
 
 本指南介绍如何为本项目编写新的协议插件。整个过程**只需写一个 Python 文件 + 改一行配置**，框架代码和网页界面完全不用动。
 
@@ -168,7 +168,7 @@ def name(self) -> str:
 | `fields` | `dict` | 解析出的字段 `{字段名: bytes}` |
 | `checksum_valid` | `bool` | 校验是否通过 |
 
-**示例（参考淄博协议）：**
+**示例（参考已有协议实现）：**
 
 ```python
 def parse_upload(self, data: bytes) -> tuple:
@@ -354,7 +354,7 @@ def build_command_data(self, func_code: int, params: dict) -> tuple:
 **常见算法：**
 
 ```python
-# 累加和 & 0xFF（淄博协议）
+# 累加和 & 0xFF（示例）
 def calc_checksum(self, data: bytes) -> int:
     return sum(data) & 0xFF
 
@@ -777,9 +777,9 @@ print(f"校验匹配: {meta['checksum'] == meta['checksum_calculated']}")
 
 ## 常见问题
 
-### Q: MCP 工具名带 `zibo_` 前缀，换协议后名字不对怎么办？
+### Q: MCP 工具名带 `mock_` 前缀，换协议后名字不对怎么办？
 
-工具名前缀在 `mcp_server.py` 中硬编码。如果不改，功能完全正常，只是工具名仍为 `zibo_xxx`。如果希望前缀也跟着变，需要修改 `mcp_server.py` 中的工具定义。后续版本计划将前缀改为从配置读取。
+工具名前缀在 `mcp_server.py` 中硬编码。如果不改，功能完全正常，只是工具名仍为 `mock_xxx`。如果希望前缀也跟着变，需要修改 `mcp_server.py` 中的工具定义。后续版本计划将前缀改为从配置读取。
 
 ### Q: 一个协议插件可以同时支持多个协议版本吗？
 
@@ -791,4 +791,4 @@ print(f"校验匹配: {meta['checksum'] == meta['checksum_calculated']}")
 
 ### Q: ACK 规则文件在哪里？
 
-首次启动时由 `get_default_rules()` 生成，保存为 `rules_{protocol}.json`（如 `rules_shanghai.json`）。用户可在网页界面修改，修改后通过 `zibo_save_rules` 工具持久化。框架启动时优先读取 JSON 文件，不存在时才调用 `get_default_rules()`。
+首次启动时由 `get_default_rules()` 生成，保存为 `rules_{protocol}.json`（如 `rules_shanghai.json`）。用户可在网页界面修改，修改后通过 `mock_save_rules` 工具持久化。框架启动时优先读取 JSON 文件，不存在时才调用 `get_default_rules()`。

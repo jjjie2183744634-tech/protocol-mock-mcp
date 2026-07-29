@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-淄博协议 Mock Server — MCP 工具集
+客户定制协议 Mock Server — MCP 工具集
 
 将 Mock Server 的全部功能封装为 MCP 工具，供 AI 在对话中直接调用：
   - 启动/停止 UDP 监听
@@ -13,7 +13,7 @@
 
 MCP server 内嵌 mock server 核心逻辑（复用 server.py 的 state 和 protocol），
 AI 直接操作内存状态，无需先启动独立的 HTTP 服务。
-可选通过 zibo_start_web_ui 工具在后台线程启动浏览器界面。
+可选通过 mock_start_web_ui 工具在后台线程启动浏览器界面。
 
 启动方式（stdio 传输）：
   python mcp_server.py
@@ -42,7 +42,7 @@ from server import (
 )
 
 # ==================== MCP Server ====================
-mcp = MCPServer(name="zibo_mock_mcp")
+mcp = MCPServer(name="protocol_mock_mcp")
 
 # HTTP server 后台线程引用
 _web_thread = None
@@ -121,7 +121,7 @@ class StartWebUiInput(BaseModel):
 # ==================== MCP 工具定义 ====================
 
 @mcp.tool(
-    name="zibo_get_protocol_info",
+    name="mock_get_protocol_info",
     annotations={
         "title": "获取协议信息",
         "readOnlyHint": True,
@@ -130,7 +130,7 @@ class StartWebUiInput(BaseModel):
         "openWorldHint": False,
     }
 )
-async def zibo_get_protocol_info() -> str:
+async def mock_get_protocol_info() -> str:
     '''获取当前协议信息和支持的指令定义。
 
     返回协议名称、支持的指令列表（含功能码、参数定义），用于了解可用的操作。
@@ -150,7 +150,7 @@ async def zibo_get_protocol_info() -> str:
 
 
 @mcp.tool(
-    name="zibo_get_state",
+    name="mock_get_state",
     annotations={
         "title": "获取运行状态",
         "readOnlyHint": True,
@@ -159,7 +159,7 @@ async def zibo_get_protocol_info() -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_get_state() -> str:
+async def mock_get_state() -> str:
     '''获取 Mock Server 当前运行状态。
 
     Returns:
@@ -176,7 +176,7 @@ async def zibo_get_state() -> str:
 
 
 @mcp.tool(
-    name="zibo_start_listen",
+    name="mock_start_listen",
     annotations={
         "title": "启动 UDP 监听",
         "readOnlyHint": False,
@@ -185,10 +185,10 @@ async def zibo_get_state() -> str:
         "openWorldHint": True,
     }
 )
-async def zibo_start_listen(params: StartListenInput) -> str:
+async def mock_start_listen(params: StartListenInput) -> str:
     '''启动 UDP 监听，开始接收水表/终端上传的数据帧。
 
-    启动后，当终端上传 101/102 等数据帧时，Mock Server 会按规则自动回复 ACK。
+    启动后，当终端上传数据帧时，Mock Server 会按规则自动回复 ACK。
     如果设置了预设指令，会在 ACK 之后自动下发。
 
     Args:
@@ -205,7 +205,7 @@ async def zibo_start_listen(params: StartListenInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_stop_listen",
+    name="mock_stop_listen",
     annotations={
         "title": "停止 UDP 监听",
         "readOnlyHint": False,
@@ -214,7 +214,7 @@ async def zibo_start_listen(params: StartListenInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_stop_listen() -> str:
+async def mock_stop_listen() -> str:
     '''停止 UDP 监听，不再接收数据帧。
 
     Returns:
@@ -225,7 +225,7 @@ async def zibo_stop_listen() -> str:
 
 
 @mcp.tool(
-    name="zibo_send_udp",
+    name="mock_send_udp",
     annotations={
         "title": "手动发送 UDP 数据",
         "readOnlyHint": False,
@@ -234,7 +234,7 @@ async def zibo_stop_listen() -> str:
         "openWorldHint": True,
     }
 )
-async def zibo_send_udp(params: SendUdpInput) -> str:
+async def mock_send_udp(params: SendUdpInput) -> str:
     '''手动发送一帧 UDP 数据到指定地址。
 
     用于主动向水表/终端下发指令或测试数据。需先启动 UDP 监听（共用同一 socket）。
@@ -246,7 +246,7 @@ async def zibo_send_udp(params: SendUdpInput) -> str:
         str: JSON 格式结果，含 ok/msg，成功时 msg 包含发送字节数
     '''
     if not state.udp_socket:
-        return json.dumps({"ok": False, "msg": "UDP 监听未启动，请先调用 zibo_start_listen"}, ensure_ascii=False)
+        return json.dumps({"ok": False, "msg": "UDP 监听未启动，请先调用 mock_start_listen"}, ensure_ascii=False)
     try:
         frame = hex_to_bytes(params.hex_data)
         if len(frame) == 0:
@@ -260,7 +260,7 @@ async def zibo_send_udp(params: SendUdpInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_get_logs",
+    name="mock_get_logs",
     annotations={
         "title": "获取日志",
         "readOnlyHint": True,
@@ -269,7 +269,7 @@ async def zibo_send_udp(params: SendUdpInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_get_logs(params: GetLogsInput) -> str:
+async def mock_get_logs(params: GetLogsInput) -> str:
     '''获取最近的通信日志。
 
     日志类型说明:
@@ -294,7 +294,7 @@ async def zibo_get_logs(params: GetLogsInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_clear_logs",
+    name="mock_clear_logs",
     annotations={
         "title": "清空日志",
         "readOnlyHint": False,
@@ -303,7 +303,7 @@ async def zibo_get_logs(params: GetLogsInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_clear_logs() -> str:
+async def mock_clear_logs() -> str:
     '''清空所有通信日志。
 
     Returns:
@@ -317,7 +317,7 @@ async def zibo_clear_logs() -> str:
 
 
 @mcp.tool(
-    name="zibo_get_rules",
+    name="mock_get_rules",
     annotations={
         "title": "获取 ACK 规则",
         "readOnlyHint": True,
@@ -326,7 +326,7 @@ async def zibo_clear_logs() -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_get_rules() -> str:
+async def mock_get_rules() -> str:
     '''获取当前 ACK 回复规则列表。
 
     规则定义了：当收到某功能码的上传帧时，回复什么功能码的 ACK，ACK 数据域如何构造。
@@ -338,7 +338,7 @@ async def zibo_get_rules() -> str:
 
 
 @mcp.tool(
-    name="zibo_toggle_rule",
+    name="mock_toggle_rule",
     annotations={
         "title": "启用/禁用 ACK 规则",
         "readOnlyHint": False,
@@ -347,7 +347,7 @@ async def zibo_get_rules() -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_toggle_rule(params: ToggleRuleInput) -> str:
+async def mock_toggle_rule(params: ToggleRuleInput) -> str:
     '''启用或禁用单条 ACK 回复规则。
 
     Args:
@@ -366,7 +366,7 @@ async def zibo_toggle_rule(params: ToggleRuleInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_save_rules",
+    name="mock_save_rules",
     annotations={
         "title": "保存 ACK 规则",
         "readOnlyHint": False,
@@ -375,10 +375,10 @@ async def zibo_toggle_rule(params: ToggleRuleInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_save_rules(params: SaveRulesInput) -> str:
+async def mock_save_rules(params: SaveRulesInput) -> str:
     '''完整替换并保存 ACK 回复规则列表。
 
-    警告：此操作会覆盖现有规则，建议先调用 zibo_get_rules 获取当前规则再修改。
+    警告：此操作会覆盖现有规则，建议先调用 mock_get_rules 获取当前规则再修改。
 
     Args:
         params: 含 rules(完整的规则列表)
@@ -393,7 +393,7 @@ async def zibo_save_rules(params: SaveRulesInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_set_ack_suppress",
+    name="mock_set_ack_suppress",
     annotations={
         "title": "设置 ACK 抑制测试",
         "readOnlyHint": False,
@@ -402,7 +402,7 @@ async def zibo_save_rules(params: SaveRulesInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_set_ack_suppress(params: SetAckSuppressInput) -> str:
+async def mock_set_ack_suppress(params: SetAckSuppressInput) -> str:
     '''设置 ACK 抑制测试：开启后前 N 次不回 ACK，第 N+1 次正常回复并自动关闭。
 
     用于测试水表/终端的重传机制：设备收不到 ACK 后应按协议设定的重传次数和间隔重新发送。
@@ -423,7 +423,7 @@ async def zibo_set_ack_suppress(params: SetAckSuppressInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_add_pending_command",
+    name="mock_add_pending_command",
     annotations={
         "title": "添加预设指令",
         "readOnlyHint": False,
@@ -432,16 +432,11 @@ async def zibo_set_ack_suppress(params: SetAckSuppressInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_add_pending_command(params: AddPendingCommandInput) -> str:
+async def mock_add_pending_command(params: AddPendingCommandInput) -> str:
     '''添加一条预设指令，在终端下次上传数据时随 ACK 一起下发。
 
-    指令类型和参数说明（淄博协议）:
-    - func_code=52: 重启终端 (params: restart_mode)
-    - func_code=7: 参数查询 (params: query_items)
-    - func_code=9: 阀门控制 (params: valve_action)
-    - func_code=71: 预置量设置 (params: preset_value)
-
-    可先调用 zibo_get_protocol_info 查看完整指令定义和参数格式。
+    指令类型和参数取决于当前加载的协议插件。
+    可先调用 mock_get_protocol_info 查看完整指令定义和参数格式。
 
     Args:
         params: 含 func_code(功能码) 和 params(指令参数)
@@ -470,7 +465,7 @@ async def zibo_add_pending_command(params: AddPendingCommandInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_get_pending_commands",
+    name="mock_get_pending_commands",
     annotations={
         "title": "获取预设指令列表",
         "readOnlyHint": True,
@@ -479,7 +474,7 @@ async def zibo_add_pending_command(params: AddPendingCommandInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_get_pending_commands() -> str:
+async def mock_get_pending_commands() -> str:
     '''获取当前待发送的预设指令列表。
 
     指令在终端下次上传数据时自动下发，下发后自动从列表中移除。
@@ -493,7 +488,7 @@ async def zibo_get_pending_commands() -> str:
 
 
 @mcp.tool(
-    name="zibo_clear_pending_commands",
+    name="mock_clear_pending_commands",
     annotations={
         "title": "清空预设指令",
         "readOnlyHint": False,
@@ -502,7 +497,7 @@ async def zibo_get_pending_commands() -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_clear_pending_commands() -> str:
+async def mock_clear_pending_commands() -> str:
     '''清空所有待发送的预设指令。
 
     Returns:
@@ -515,7 +510,7 @@ async def zibo_clear_pending_commands() -> str:
 
 
 @mcp.tool(
-    name="zibo_start_web_ui",
+    name="mock_start_web_ui",
     annotations={
         "title": "启动 Web 界面",
         "readOnlyHint": False,
@@ -524,7 +519,7 @@ async def zibo_clear_pending_commands() -> str:
         "openWorldHint": True,
     }
 )
-async def zibo_start_web_ui(params: StartWebUiInput) -> str:
+async def mock_start_web_ui(params: StartWebUiInput) -> str:
     '''在后台启动 Web 浏览器界面（HTTP 服务）。
 
     启动后可通过浏览器访问 http://localhost:{port} 查看实时日志和操作界面。
@@ -566,7 +561,7 @@ async def zibo_start_web_ui(params: StartWebUiInput) -> str:
 
 
 @mcp.tool(
-    name="zibo_stop_web_ui",
+    name="mock_stop_web_ui",
     annotations={
         "title": "停止 Web 界面",
         "readOnlyHint": False,
@@ -575,7 +570,7 @@ async def zibo_start_web_ui(params: StartWebUiInput) -> str:
         "openWorldHint": False,
     }
 )
-async def zibo_stop_web_ui() -> str:
+async def mock_stop_web_ui() -> str:
     '''停止 Web 浏览器界面（不影响 UDP 监听）。
 
     Returns:

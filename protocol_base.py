@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 协议抽象基类 — 所有协议插件必须继承此类并实现抽象方法。
@@ -40,7 +40,7 @@ class ProtocolBase(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """协议名称，如 '淄博协议'、'上海为源协议'"""
+        """协议名称，如 '淄博协议'、'上海为源协议'等"""
         ...
 
     # ==================== 帧解析 ====================
@@ -124,7 +124,7 @@ class ProtocolBase(ABC):
         """计算校验和。
 
         不同协议校验算法不同：
-        - 淄博: 累加和 & 0xFF
+        - 示例A: 累加和 & 0xFF
         - 上海为源: 可能用 CRC16
         - 其他: 视协议而定
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 通用 Mock Server 框架 — 协议无关
@@ -38,7 +38,7 @@ from protocol_base import ProtocolBase, bytes_to_hex, hex_to_bytes
 # ==================== 加载配置 + 协议插件 ====================
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.json")
 
-_DEFAULT_CONFIG = {"protocol": "zibo", "listen_port": 30088, "bind_ip": "0.0.0.0",
+_DEFAULT_CONFIG = {"protocol": "zibo"  # 默认使用淄博协议插件，可改为其他插件名, "listen_port": 30088, "bind_ip": "0.0.0.0",
                    "web_port": 8090, "auto_reply": True}
 
 def load_config():

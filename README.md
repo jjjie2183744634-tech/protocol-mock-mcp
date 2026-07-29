@@ -1,6 +1,6 @@
-# 淄博协议 Mock Server MCP
+# 客户定制协议 Mock Server MCP
 
-将淄博远传水表协议的 Mock Server 封装为 MCP 工具，供 AI（Claude Code、TRAE 等支持 MCP 的客户端）在对话中直接调用。
+将水表/终端远传协议的 Mock Server 封装为 MCP 工具，供 AI（Claude Code、TRAE 等支持 MCP 的客户端）在对话中直接调用。采用插件化架构，支持任意客户定制协议。
 
 ## 功能
 
@@ -11,6 +11,7 @@
 - 预设指令管理（重启、阀门控制、参数查询、预置量）
 - 实时日志查询与过滤
 - 可选启动 Web 浏览器界面
+- **插件化协议架构**：添加新协议只需写一个 Python 文件 + 改一行配置
 
 ## 快速开始
 
@@ -27,7 +28,7 @@ pip install mcp
 ```json
 {
   "mcpServers": {
-    "zibo_mock": {
+    "protocol_mock": {
       "command": "python",
       "args": ["/path/to/mcp_server.py"]
     }
@@ -50,22 +51,22 @@ pip install mcp
 
 | 工具 | 功能 |
 |------|------|
-| zibo_get_protocol_info | 获取协议信息和指令定义 |
-| zibo_get_state | 获取运行状态 |
-| zibo_start_listen | 启动 UDP 监听 |
-| zibo_stop_listen | 停止 UDP 监听 |
-| zibo_send_udp | 手动发送 UDP 数据 |
-| zibo_get_logs | 获取通信日志 |
-| zibo_clear_logs | 清空日志 |
-| zibo_get_rules | 获取 ACK 规则 |
-| zibo_toggle_rule | 启用/禁用规则 |
-| zibo_save_rules | 保存规则 |
-| zibo_set_ack_suppress | 设置 ACK 抑制测试 |
-| zibo_add_pending_command | 添加预设指令 |
-| zibo_get_pending_commands | 获取预设指令列表 |
-| zibo_clear_pending_commands | 清空预设指令 |
-| zibo_start_web_ui | 启动 Web 界面 |
-| zibo_stop_web_ui | 停止 Web 界面 |
+| mock_get_protocol_info | 获取协议信息和指令定义 |
+| mock_get_state | 获取运行状态 |
+| mock_start_listen | 启动 UDP 监听 |
+| mock_stop_listen | 停止 UDP 监听 |
+| mock_send_udp | 手动发送 UDP 数据 |
+| mock_get_logs | 获取通信日志 |
+| mock_clear_logs | 清空日志 |
+| mock_get_rules | 获取 ACK 规则 |
+| mock_toggle_rule | 启用/禁用规则 |
+| mock_save_rules | 保存规则 |
+| mock_set_ack_suppress | 设置 ACK 抑制测试 |
+| mock_add_pending_command | 添加预设指令 |
+| mock_get_pending_commands | 获取预设指令列表 |
+| mock_clear_pending_commands | 清空预设指令 |
+| mock_start_web_ui | 启动 Web 界面 |
+| mock_stop_web_ui | 停止 Web 界面 |
 
 ## 扩展：添加新协议插件
 
@@ -83,9 +84,11 @@ pip install mcp
 ├── PLUGIN_GUIDE.md        # 插件开发指南
 └── protocols/
     ├── __init__.py
-    └── zibo.py            # 淄博协议实现
+    └── zibo.py            # 淄博协议实现（参考示例）
 ```
 
 ## 架构
 
-MCP Server 内嵌 Mock Server 核心逻辑，AI 直接操作内存状态，无需先启动独立的 HTTP 服务。Web 界面作为可选功能通过 zibo_start_web_ui 按需启动，与 MCP 工具共享同一状态。
+MCP Server 内嵌 Mock Server 核心逻辑，AI 直接操作内存状态，无需先启动独立的 HTTP 服务。Web 界面作为可选功能通过 mock_start_web_ui 按需启动，与 MCP 工具共享同一状态。
+
+框架层（server.py）协议无关，所有协议解析/构造通过 protocols/ 目录下的插件完成。切换协议只需修改 config.json 中的 `"protocol"` 字段。
