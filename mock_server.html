@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#eef1f4">
+<title>淄博协议 Mock Server</title>
+<style>
+/* ===== 设计令牌 =====
+ * 改动原因：原配色 tag 有 5+ 种颜色与主色 teal 脱节；
+ * 字体用通用 Microsoft YaHei 缺乏辨识度。
+ * 方案：统一 teal 色系，tag 精简为语义三色（输入/输出/配置），
+ * 字体升级为 HarmonyOS Sans SC + JetBrains Mono（hex 数据可读性更好）。
+ */
+:root {
+  --page:#eef1f4; --surface:#fff; --soft:#f5f7f9;
+  --line:#e3e8ed; --line2:#c4ccd4;
+  --text:#15202b; --muted:#5e6b7a;
+  --accent:#087f74; --accent2:#06665e; --accent-soft:#e6f2f0;
+  --good:#167747; --good-bg:#e8f5ee;
+  --warn:#9a5a00; --warn-bg:#fff6df;
+  --bad:#b42318; --bad-bg:#fdedec;
+  --info:#1d5fa0; --info-bg:#eaf2ff;
+  --radius:8px;
+  --mono:"JetBrains Mono","Fira Code","Consolas",monospace;
+  font-family:"HarmonyOS Sans SC","Microsoft YaHei","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* body 加微妙的网格纹理增加质感，避免纯色平坦 */
+body{background:var(--page);background-image:radial-gradient(circle at 1px 1px,rgba(8,127,116,.04) 1px,transparent 0);background-size:22px 22px;color:var(--text);font-size:14px;line-height:1.5;min-width:360px}
+
+/* ===== 滚动条 =====
+ * 原左栏无滚动提示，用户不知道下方有内容。
+ * 自定义滚动条样式，用主色提示可滚动。
+ */
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cdd6dd;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+
+/* ===== 顶栏 =====
+ * 原纯色 #1e2a36 与主色 teal 冷暖不一致。
+ * 改为主色深版渐变，与 border-bottom 统一色系。
+ */
+.topbar{background:linear-gradient(135deg,#065f56,#0a4a44);color:#fff;border-bottom:3px solid var(--accent);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(6,95,86,.18)}
+.topbar h1{font-size:19px;font-weight:700;letter-spacing:.3px}
+.topbar .stats{display:flex;gap:16px;font-size:13px;align-items:center;font-variant-numeric:tabular-nums}
+.topbar .stat{display:flex;align-items:center;gap:5px}
+.topbar .dot{width:8px;height:8px;border-radius:50%;background:#555}
+/* 状态灯加 pulse 动画，监听中时呼吸效果提示活跃状态 */
+.topbar .dot.on{background:#4ade80;box-shadow:0 0 6px #4ade80;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+main{max-width:1400px;margin:0 auto;padding:14px 16px 28px;display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start;flex:1;min-height:0}
+@media(max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .grid>div:first-child{max-height:none;overflow:visible}
+  .grid>div:last-child{height:60vh;min-height:300px}
+}
+.grid>div:first-child{overflow-y:auto;min-height:0;max-height:calc(100vh - 88px);padding-right:4px}
+.grid>div:last-child{height:calc(100vh - 88px);min-height:0}
+
+/* ===== 面板 =====
+ * 原面板无阴影，视觉上是纯平面。加分级阴影提升层次感。
+ */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.panel-h{padding:9px 12px;font-weight:700;font-size:14px;background:var(--soft);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.panel-b{padding:12px}
+
+/* ===== 按钮 =====
+ * 原 hover 仅变色，触感反馈弱。加阴影提升层次感。
+ */
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 14px;border:1px solid var(--line2);border-radius:5px;background:#fff;color:var(--text);cursor:pointer;font:inherit;font-weight:600;font-size:13px;white-space:nowrap;transition:background .15s,box-shadow .15s,transform .15s,border-color .15s;touch-action:manipulation;transform-origin:center}
+.btn:hover{background:#f0f3f5;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.btn:active{transform:scale(0.97)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent2);box-shadow:0 2px 8px rgba(8,127,116,.25)}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.danger:hover{box-shadow:0 2px 8px rgba(180,35,24,.25)}
+.btn.sm{min-height:28px;padding:3px 10px;font-size:12px}
+
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.field input,.field select{width:100%;min-height:34px;padding:6px 10px;border:1px solid var(--line2);border-radius:5px;font:inherit;font-size:13px;background:#fff}
+.field input:focus-visible,.field select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* hex 输入框用等宽字体，对齐更整齐 */
+.field input.mono,input[id="sendHex"],input[id="cmd71Hex"]{font-family:var(--mono);letter-spacing:.5px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ===== 开关 =====
+ * 原 ACK 规则卡片内 toggle 用内联 style 缩小到 32px，点击区域偏小。
+ * 统一为 36px，保证可点击性。
+ */
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle input{display:none}
+.toggle .track{width:36px;height:20px;border-radius:10px;background:#ccc;position:relative;transition:background .2s;flex-shrink:0}
+.toggle .track::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s,background .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.toggle input:checked+.track{background:var(--accent)}
+.toggle input:checked+.track::after{left:18px}
+/* 焦点可见性：input 隐藏后焦点不可见，用 :focus-within 在 track 上显示焦点环 */
+.toggle:focus-within .track{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== ACK 规则卡片 =====
+ * tag 颜色精简：原 5+ 种颜色（match蓝/ack绿/copy紫/fixed黄）。
+ * 方案：match/ack 归为语义色（info 蓝 / good 绿），
+ * copy/fixed 改为主色系变体（accent / muted），用前缀图标而非颜色区分类型。
+ */
+.rule-card{border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:8px;position:relative}
+.rule-card .rule-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.rule-card .rule-name{font-weight:600;font-size:13px}
+.rule-card .rule-body{font-size:12px;color:var(--muted);line-height:1.8}
+.rule-card .tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px}
+.tag.match{background:var(--info-bg);color:var(--info)}
+.tag.ack{background:var(--good-bg);color:var(--good)}
+.tag.copy{background:var(--accent-soft);color:var(--accent2)}
+.tag.fixed{background:var(--soft);color:var(--muted);border:1px solid var(--line)}
+.rule-card.disabled{opacity:.5}
+.rule-card .field-list{margin-top:4px;padding-left:8px;border-left:2px solid var(--line)}
+
+/* ===== 日志 =====
+ * 原日志直接 append 无入场动效，密集流中难以察觉新增项。
+ * 加 slideInDown 动画，新条目从上方滑入并淡入。
+ */
+@keyframes slideInDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+/* 尊重用户的减少动效偏好 */
+@media(prefers-reduced-motion:reduce){
+  .topbar .dot.on{animation:none}
+  .log-entry{animation:none}
+  .btn:active{transform:none}
+  .toggle .track,.toggle .track::after{transition:none}
+}
+.log-list{overflow-y:auto;padding:0;min-height:0;overscroll-behavior:contain}
+.log-entry{padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;animation:slideInDown .3s ease-out}
+.log-entry:hover{background:var(--soft)}
+.log-entry .le-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.log-entry .le-time{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.log-entry .le-num{font-size:11px;color:var(--muted);background:var(--soft);padding:1px 5px;border-radius:3px}
+.log-entry .le-badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.le-badge.upload{background:var(--info-bg);color:var(--info)}
+.le-badge.ack{background:var(--good-bg);color:var(--good)}
+.le-badge.error{background:var(--bad-bg);color:var(--bad)}
+.le-badge.ack_error{background:var(--warn-bg);color:var(--warn)}
+.le-badge.command{background:var(--accent-soft);color:var(--accent2)}
+.le-badge.suppress{background:var(--warn-bg);color:var(--warn)}
+.log-entry .le-hex{font-family:var(--mono);font-size:12px;color:#2d5f88;word-break:break-all;margin-top:3px;padding:5px 7px;background:#eef1f4;border-radius:3px;letter-spacing:.5px}
+.log-entry .le-detail{margin-top:4px;font-size:12px;color:var(--muted)}
+.log-entry .le-detail span{margin-right:12px}
+.log-entry .le-cs{font-family:var(--mono)}
+.log-entry .le-cs.ok{color:var(--good)}
+.log-entry .le-cs.bad{color:var(--bad)}
+
+/* ===== 空状态 =====
+ * 原仅一行灰字，无引导。加图标 + 引导按钮，引导新用户操作。
+ */
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+.empty .empty-icon{font-size:28px;margin-bottom:8px;opacity:.4}
+.empty .empty-btn{display:inline-block;margin-top:10px}
+
+.send-box{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.send-box .field{flex:1;min-width:120px;margin-bottom:0}
+.badge{display:inline-flex;align-items:center;min-height:20px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.badge.good{color:var(--good);background:var(--good-bg)}
+.badge.bad{color:var(--bad);background:var(--bad-bg)}
+.badge.info{color:var(--info);background:var(--info-bg)}
+.badge.warn{color:var(--warn);background:var(--warn-bg)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;margin-top:6px}
+.kv .k{color:var(--muted)}
+.kv .v{font-family:var(--mono)}
+.cmd-params{margin-top:8px;padding:8px;background:var(--soft);border-radius:5px;border:1px solid var(--line)}
+.tag-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tag-check{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#fff;border:1px solid var(--line2);border-radius:4px;font-size:12px;cursor:pointer}
+.tag-check input{margin:0}
+.tag-check:has(input:checked){background:var(--accent-soft);border-color:var(--accent)}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.pending-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--soft);border:1px solid var(--line);border-radius:5px;margin-bottom:5px;font-size:12px}
+.pending-item .pi-info{flex:1;min-width:0}
+.pending-item .pi-name{font-weight:600;color:var(--text)}
+.pending-item .pi-data{font-family:var(--mono);color:var(--info);font-size:11px;word-break:break-all}
+.pending-item .pi-time{color:var(--muted);font-size:11px}
+.pending-item .pi-del{margin-left:6px;flex-shrink:0}
+.cmd-tip{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1 id="topbarTitle">Mock Server</h1>
+  <div class="stats">
+    <div class="stat"><span class="dot" id="dotUdp"></span><span id="lblUdp">未监听</span></div>
+    <div class="stat">收包 <strong id="lblPkt">0</strong></div>
+    <div class="stat">回复 <strong id="lblAck">0</strong></div>
+    <div class="stat">预设 <strong id="lblPending">0</strong></div>
+    <button class="btn danger sm" id="btnShutdown" style="margin-left:10px">停止服务</button>
+  </div>
+</div>
+
+<main>
+<div class="grid">
+  <!-- 左栏 -->
+  <div>
+    <!-- 监听配置 -->
+    <div class="panel">
+      <div class="panel-h">监听配置</div>
+      <div class="panel-b">
+        <div class="row2">
+          <div class="field">
+            <label for="cfgPort">监听端口</label>
+            <input type="number" id="cfgPort" name="cfgPort" value="30088" min="1" max="65535" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="cfgIp">绑定IP</label>
+            <input type="text" id="cfgIp" name="cfgIp" value="0.0.0.0" placeholder="0.0.0.0" autocomplete="off">
+          </div>
+        </div>
+        <label class="toggle" style="margin-bottom:10px">
+          <input type="checkbox" id="cfgAutoReply" checked>
+          <span class="track"></span>
+          <span>自动回复ACK</span>
+        </label>
+        <div style="display:flex;gap:8px">
+          <button class="btn primary" id="btnStart" style="flex:1">启动监听</button>
+          <button class="btn danger" id="btnStop" style="flex:1;display:none">停止监听</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACK抑制测试 -->
+    <div class="panel">
+      <div class="panel-h">ACK抑制测试</div>
+      <div class="panel-b">
+        <div class="cmd-tip" style="margin-bottom:8px">开启后前N次不回ACK，第N+1次正常回复并自动关闭，用于测试设备重发机制</div>
+        <div class="row2">
+          <div class="field">
+            <label for="suppressCount">抑制次数</label>
+            <input type="number" id="suppressCount" name="suppressCount" value="3" min="1" max="255" autocomplete="off">
+          </div>
+          <div class="field" style="justify-content:flex-end;display:flex;align-items:flex-end">
+            <button class="btn warn" id="btnSuppress" style="width:100%">开启抑制</button>
+          </div>
+        </div>
+        <div id="suppressStatus" style="margin-top:8px;font-size:12px;color:var(--warn);display:none">
+          抑制中 <strong id="suppressCurrent">0</strong> / <span id="suppressTotal">3</span> 次
+        </div>
+      </div>
+    </div>
+
+    <!-- ACK规则 -->
+    <div class="panel">
+      <div class="panel-h">
+        ACK回复规则
+        <button class="btn sm" id="btnSaveRules">保存规则</button>
+      </div>
+      <div class="panel-b" id="rulesContainer"></div>
+    </div>
+
+    <!-- 指令预设 -->
+    <div class="panel">
+      <div class="panel-h">
+        指令预设
+        <span class="badge info" id="pendingBadge">0条</span>
+      </div>
+      <div class="panel-b">
+        <div class="cmd-tip" style="margin-bottom:8px">预设指令后，终端下次上传数据时自动跟ACK一起下发</div>
+        <div class="field">
+          <label for="cmdType">指令类型</label>
+          <select id="cmdType" autocomplete="off">
+            <option value="">加载中…</option>
+          </select>
+        </div>
+        <!-- 动态渲染的参数表单 -->
+        <div id="cmdParams"></div>
+        <button class="btn primary" id="btnAddCmd" style="width:100%;margin-top:8px">添加预设</button>
+        <div id="pendingList" style="margin-top:10px"></div>
+        <button class="btn sm" id="btnClearPending" style="width:100%;margin-top:6px;display:none">清空全部预设</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右栏：手动发送工具条 + 日志 -->
+  <!-- 改动原因：原「手动发送」在左栏底部，需滚动才能看到，属于高频操作不应被埋没。
+       移至右栏顶部做成紧凑工具条，始终可见。 -->
+  <div style="display:flex;flex-direction:column;min-height:0;overflow:hidden">
+    <!-- 手动发送工具条 -->
+    <div class="panel" style="margin-bottom:10px;flex-shrink:0">
+      <div class="panel-b" style="padding:10px 12px">
+        <div class="send-box">
+          <div class="field" style="flex:1;min-width:140px;margin-bottom:0"><label for="sendIp">目标IP</label><input type="text" id="sendIp" name="sendIp" placeholder="192.168.3.126" autocomplete="off"></div>
+          <div class="field" style="max-width:90px;margin-bottom:0"><label for="sendPort">端口</label><input type="number" id="sendPort" name="sendPort" placeholder="5683" autocomplete="off"></div>
+          <div class="field" style="flex:2;min-width:200px;margin-bottom:0"><label for="sendHex">Hex数据</label><input type="text" id="sendHex" name="sendHex" placeholder="68 04 …" class="mono" autocomplete="off" spellcheck="false"></div>
+          <button class="btn primary" id="btnSend" style="min-height:34px">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 实时日志 -->
+    <div class="panel" style="flex:1;display:flex;flex-direction:column;margin-bottom:0;min-height:0;overflow:hidden">
+      <div class="panel-h">
+        实时日志
+        <div style="display:flex;gap:6px;align-items:center">
+          <label class="toggle" style="font-size:12px"><input type="checkbox" id="autoScroll" checked><span class="track"></span><span>自动滚动</span></label>
+          <button class="btn sm" id="btnClearLog">清空</button>
+        </div>
+      </div>
+      <div class="log-list" id="logList" style="flex:1;min-height:0;overflow-y:auto" aria-live="polite" aria-label="实时日志">
+        <div class="empty" id="emptyState">
+          <div class="empty-icon" aria-hidden="true">📡</div>
+          <div>启动监听后，水表上报数据将在此实时显示</div>
+          <button class="btn primary sm empty-btn" id="btnEmptyStart">启动监听</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+let eventSource = null;
+let commandDefs = [];
+
+async function loadCommands() {
+  const data = await api('/api/commands');
+  commandDefs = data.commands || [];
+  document.title = (data.protocol_name || 'Mock') + ' Mock Server';
+  $('topbarTitle').textContent = (data.protocol_name || 'Mock') + ' Mock Server';
+  const sel = $('cmdType');
+  sel.innerHTML = commandDefs.map(c =>
+    `<option value="${c.func_code}">${c.func_code} - ${esc(c.name)}</option>`
+  ).join('') || '<option value="">无可用指令</option>';
+  if (commandDefs.length > 0) switchCmdType();
+}
+
+// ===== 状态管理 =====
+async function api(path, method='GET', body=null) {
+  const opts = {method, headers:{'Content-Type':'application/json'}};
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+async function refreshState() {
+  const s = await api('/api/state');
+  $('dotUdp').className = 'dot' + (s.udp_running ? ' on' : '');
+  $('lblUdp').textContent = s.udp_running ? `监听中 :${s.listen_port}` : '未监听';
+  $('lblPkt').textContent = s.packet_count;
+  $('lblAck').textContent = s.ack_count;
+  $('lblPending').textContent = s.pending_count || 0;
+  $('btnStart').style.display = s.udp_running ? 'none' : '';
+  $('btnStop').style.display = s.udp_running ? '' : 'none';
+  // ACK抑制状态
+  if (s.ack_suppress_enabled) {
+    $('btnSuppress').textContent = '停止抑制';
+    $('btnSuppress').classList.add('active');
+    $('suppressStatus').style.display = '';
+    $('suppressCurrent').textContent = s.ack_suppress_current;
+    $('suppressTotal').textContent = s.ack_suppress_count;
+  } else {
+    $('btnSuppress').textContent = '开启抑制';
+    $('btnSuppress').classList.remove('active');
+    $('suppressStatus').style.display = 'none';
+  }
+}
+
+async function refreshRules() {
+  const rules = await api('/api/rules');
+  const c = $('rulesContainer');
+  c.innerHTML = rules.map(r => {
+    const fields = (r.ack_data_fields||[]).map(f => {
+      const cls = f.type === 'copy' ? 'copy' : 'fixed';
+      const icon = f.type === 'copy' ? '⧉' : '≔';
+      const txt = f.type === 'copy' ? `${icon} 复制 ${esc(f.field)} (${f.length}B)` : `${icon} 固定 ${esc(f.value)}`;
+      return `<span class="tag ${cls}">${txt}</span>`;
+    }).join('');
+    return `<div class="rule-card ${r.enabled?'':'disabled'}">
+      <div class="rule-h">
+        <span class="rule-name">${esc(r.name)}</span>
+        <label class="toggle"><input type="checkbox" data-rule-id="${r.id}" ${r.enabled?'checked':''} onchange="toggleRule(this)"><span class="track"></span></label>
+      </div>
+      <div class="rule-body">
+        <span class="tag match">匹配 功能码${r.match_function_code}</span>
+        <span class="tag ack">回复 功能码${r.ack_function_code}</span>
+        <div class="field-list">${fields}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.toggleRule = async function(cb) {
+  const id = cb.dataset.ruleId;
+  const rules = await api('/api/rules');
+  const r = rules.find(x => x.id === id);
+  if (r) { r.enabled = cb.checked; await api('/api/rules','POST',rules); }
+};
+
+// ===== 启动/停止 =====
+async function startListen() {
+  const port = parseInt($('cfgPort').value);
+  const ip = $('cfgIp').value;
+  const autoReply = $('cfgAutoReply').checked;
+  const r = await api('/api/start','POST',{port,bind_ip:ip,auto_reply:autoReply});
+  if (!r.ok) alert(r.msg);
+  refreshState();
+}
+
+$('btnStart').onclick = startListen;
+$('btnEmptyStart').onclick = startListen;
+
+$('btnStop').onclick = async () => {
+  await api('/api/stop','POST');
+  refreshState();
+};
+
+$('btnSaveRules').onclick = async () => {
+  const r = await api('/api/rules','POST', await api('/api/rules'));
+  alert(r.msg);
+};
+
+// ===== 手动发送 =====
+$('btnSend').onclick = async () => {
+  const hex = $('sendHex').value.trim();
+  const ip = $('sendIp').value.trim();
+  const port = parseInt($('sendPort').value);
+  if (!hex || !ip || !port) { alert('请填写IP、端口和Hex数据'); return; }
+  const r = await api('/api/send','POST',{hex,ip,port});
+  if (!r.ok) alert(r.msg);
+};
+
+// ===== ACK抑制测试 =====
+$('btnSuppress').onclick = async () => {
+  const isActive = $('btnSuppress').classList.contains('active');
+  if (isActive) {
+    // 停止抑制
+    await api('/api/ack-suppress','POST',{enabled:false});
+  } else {
+    // 开启抑制
+    const count = parseInt($('suppressCount').value) || 3;
+    if (count < 1) { alert('抑制次数至少为1'); return; }
+    await api('/api/ack-suppress','POST',{enabled:true,count});
+  }
+  refreshState();
+};
+
+// ===== 指令预设 =====
+function switchCmdType() {
+  const funcCode = parseInt($('cmdType').value);
+  const cmd = commandDefs.find(c => c.func_code === funcCode);
+  const container = $('cmdParams');
+  if (!cmd || !cmd.params || cmd.params.length === 0) {
+    container.innerHTML = '<div class="cmd-params" style="color:var(--muted);font-size:12px;padding:8px">此指令无需参数</div>';
+    return;
+  }
+  const allNumbers = cmd.params.length > 1 && cmd.params.every(p => p.type === 'number');
+  const openRow = allNumbers ? '<div class="row3">' : '<div class="cmd-params">';
+  const closeRow = '</div>';
+  container.innerHTML = openRow + cmd.params.map(p => {
+    const id = `cmdParam_${p.name}`;
+    if (p.type === 'select') {
+      const opts = (p.options||[]).map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+      return `<div class="field" style="margin:0"><label for="${id}">${esc(p.label)}</label><select id="${id}" autocomplete="off">${opts}</select></div>`;
+    } else if (p.type === 'number') {
+      return `<div class="field" style="margin:0"><label for="${id}">${esc(p.label)}</label><input type="number" id="${id}" name="${id}" value="${p.default ?? ''}" ${p.min != null ? `min="${p.min}"` : ''} ${p.max != null ? `max="${p.max}"` : ''} autocomplete="off"></div>`;
+    } else if (p.type === 'text') {
+      return `<div class="field" style="margin:0"><label for="${id}">${esc(p.label)}</label><input type="text" id="${id}" name="${id}" value="${esc(p.default || '')}" placeholder="${esc(p.placeholder || '')}" class="mono" autocomplete="off" spellcheck="false"></div>`;
+    } else if (p.type === 'checkbox-group') {
+      const checks = (p.options||[]).map(o => `<label class="tag-check"><input type="checkbox" value="${esc(o.value)}"> ${esc(o.label)}</label>`).join('');
+      return `<div class="field" style="margin:0"><label>${esc(p.label)}</label><div class="tag-checks" id="${id}">${checks}</div></div>`;
+    }
+    return '';
+  }).join('') + closeRow;
+}
+
+$('cmdType').onchange = switchCmdType;
+
+async function addCmd() {
+  const funcCode = parseInt($('cmdType').value);
+  if (!funcCode) { alert('请先选择指令类型'); return; }
+  const cmd = commandDefs.find(c => c.func_code === funcCode);
+  const params = {};
+  if (cmd && cmd.params) {
+    for (const p of cmd.params) {
+      const id = `cmdParam_${p.name}`;
+      if (p.type === 'checkbox-group') {
+        params[p.name] = Array.from(document.querySelectorAll(`#${id} input:checked`)).map(c => c.value);
+        if (params[p.name].length === 0) { alert(`请至少选择一个${p.label}`); return; }
+      } else {
+        const el = $(id);
+        if (!el) continue;
+        const val = el.value.trim();
+        if (!val && p.type !== 'select') { alert(`请填写${p.label}`); return; }
+        params[p.name] = val;
+      }
+    }
+  }
+  const r = await api('/api/pending/add','POST',{func_code:funcCode, params});
+  if (!r.ok) { alert(r.msg); return; }
+  refreshPending();
+  refreshState();
+}
+
+async function refreshPending() {
+  const cmds = await api('/api/pending');
+  const c = $('pendingList');
+  $('pendingBadge').textContent = cmds.length + '条';
+  $('btnClearPending').style.display = cmds.length > 0 ? '' : 'none';
+  if (cmds.length === 0) {
+    c.innerHTML = '<div style="text-align:center;padding:8px;color:var(--muted);font-size:12px">暂无预设指令</div>';
+    return;
+  }
+  c.innerHTML = cmds.map(cmd => `<div class="pending-item">
+    <div class="pi-info">
+      <div class="pi-name">${esc(cmd.func_name)}</div>
+      <div class="pi-data">${esc(cmd.data_hex)}</div>
+      <div class="pi-time">${esc(cmd.created_at)}</div>
+    </div>
+    <button class="btn sm danger pi-del" onclick="removeCmd('${cmd.id}')">删除</button>
+  </div>`).join('');
+}
+
+window.removeCmd = async function(id) {
+  await api('/api/pending/remove','POST',{id});
+  refreshPending();
+  refreshState();
+};
+
+$('btnAddCmd').onclick = addCmd;
+$('btnClearPending').onclick = async () => {
+  if (!confirm('确定要清空全部预设指令吗？此操作不可撤销。')) return;
+  await api('/api/pending/clear','POST');
+  refreshPending();
+  refreshState();
+};
+
+// ===== 清空日志 =====
+$('btnClearLog').onclick = async () => {
+  if (!confirm('确定要清空所有日志吗？此操作不可撤销。')) return;
+  try {
+    await api('/api/logs/clear', 'POST');
+  } catch(e) {}
+  $('logList').innerHTML = '<div class="empty"><div class="empty-icon" aria-hidden="true">📭</div><div>日志已清空</div></div>';
+};
+
+// ===== 停止服务 =====
+$('btnShutdown').onclick = async () => {
+  if (!confirm('确定要停止 Mock Server 服务吗？\n停止后需要重新双击 启动Mock服务.vbs 来启动。')) return;
+  try {
+    await api('/api/shutdown', 'POST');
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;font-family:Microsoft YaHei,sans-serif"><h2 style="color:#087f74">服务已停止</h2><p style="color:#67768a">重新启动请双击 tools 目录下的「启动Mock服务.vbs」</p></div>';
+  } catch(e) {
+    alert('停止请求已发送，服务正在关闭...');
+  }
+};
+
+// ===== SSE实时日志（指数退避重连）=====
+let reconnectAttempts = 0;
+let reconnectTimer = null;
+
+function connectSSE() {
+  if (eventSource) eventSource.close();
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  eventSource = new EventSource('/events');
+  eventSource.onmessage = (e) => {
+    const entry = JSON.parse(e.data);
+    addLogEntry(entry);
+    refreshState();
+    reconnectAttempts = 0; // 收到消息说明连接正常，重置退避计数
+  };
+  eventSource.onerror = () => {
+    if (eventSource) eventSource.close();
+    reconnectAttempts++;
+    // 指数退避：1s, 2s, 4s, 8s... 上限 30s
+    const delay = Math.min(30000, Math.pow(2, reconnectAttempts) * 1000);
+    reconnectTimer = setTimeout(connectSSE, delay);
+  };
+}
+
+function addLogEntry(entry) {
+  const list = $('logList');
+  const empty = list.querySelector('.empty');
+  if (empty) empty.remove();
+
+  let badge, header, hex, detail = '';
+  if (entry.type === 'upload') {
+    badge = `<span class="le-badge upload">↑ ${esc(entry.function_name)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span class="le-num">#${esc(entry.packet_num)}</span><span style="font-size:12px;color:var(--muted)">${esc(entry.source_ip)}:${esc(entry.source_port)}</span>`;
+    hex = entry.raw_hex;
+    const fields = (entry.fields||[]).map(f => `${esc(f.name)}=${esc(f.hex)}`).join('  ');
+    detail = `<span>水表:${esc(entry.meter_address_logical)}</span><span>序列号:${esc(entry.sequence)}</span><span>IMEI:${esc(entry.imei)}</span><span>RSRP:${esc(entry.rsrp)}dBm</span><span>SNR:${esc(entry.snr)}</span><span>数据域:${esc(entry.data_length)}B</span>`;
+    if (fields) detail += `<br><span style="font-family:var(--mono);color:var(--accent2)">${fields}</span>`;
+  } else if (entry.type === 'ack') {
+    badge = `<span class="le-badge ack">↓ ${esc(entry.ack_name)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span style="font-size:12px;color:var(--muted)">→ ${esc(entry.target_ip)}:${esc(entry.target_port)}</span>`;
+    hex = entry.raw_hex;
+    const csOk = entry.checksum === entry.checksum_calculated;
+    detail = `<span>ACK功能码:${esc(entry.ack_function_code)}</span><span>序列号:${esc(entry.sequence)}</span><span>数据域:${esc(entry.data_length)}B</span><span class="le-cs ${csOk?'ok':'bad'}">校验和:${esc(entry.checksum.toString(16).toUpperCase().padStart(2,'0'))} ${csOk?'✓':'✗'}</span>`;
+  } else if (entry.type === 'command') {
+    badge = `<span class="le-badge command">↓ ${esc(entry.func_name)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span style="font-size:12px;color:var(--muted)">→ ${esc(entry.target_ip)}:${esc(entry.target_port)}</span>`;
+    hex = entry.raw_hex;
+    const csOk = entry.checksum === entry.checksum_calculated;
+    detail = `<span>功能码:${esc(entry.func_code)}</span><span>序列号:${esc(entry.sequence)}</span><span>数据域:${esc(entry.data_length)}B</span><span class="le-cs ${csOk?'ok':'bad'}">校验和:${esc(entry.checksum.toString(16).toUpperCase().padStart(2,'0'))} ${csOk?'✓':'✗'}</span>`;
+  } else if (entry.type === 'error') {
+    badge = `<span class="le-badge error">✗ 解析失败</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span class="le-num">#${esc(entry.packet_num)}</span><span style="font-size:12px;color:var(--muted)">${esc(entry.source_ip)}:${esc(entry.source_port)}</span>`;
+    hex = entry.raw_hex;
+    detail = `<span style="color:var(--bad)">${esc(entry.error)}</span><span>帧长:${esc(entry.frame_length)}B</span>`;
+  } else if (entry.type === 'ack_error') {
+    badge = `<span class="le-badge ack_error">⚠ ACK发送失败</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span>`;
+    detail = `<span style="color:var(--bad)">${esc(entry.error)}</span>`;
+  } else if (entry.type === 'ack_suppress') {
+    badge = `<span class="le-badge suppress">⊘ ACK抑制 ${esc(entry.suppressed_num)}/${esc(entry.suppress_count)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span class="le-num">#${esc(entry.packet_num)}</span><span style="font-size:12px;color:var(--muted)">${esc(entry.source_ip)}:${esc(entry.source_port)}</span>`;
+    detail = `<span>${esc(entry.function_name)}</span><span>序列号:${esc(entry.sequence)}</span><span style="color:var(--warn)">第${esc(entry.suppressed_num)}次不回复ACK</span>`;
+  }
+
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<div class="le-h">${badge}${header}</div>${detail?'<div class="le-detail">'+detail+'</div>':''}${hex?'<div class="le-hex">'+esc(hex)+'</div>':''}`;
+  list.appendChild(div);
+
+  // 限制日志数量
+  while (list.children.length > 200) list.removeChild(list.firstChild);
+
+  // 自动滚动到底部（最新日志在底部，仿网络调试助手）
+  // 用 rAF 延迟到下一帧，确保浏览器完成重排后再读取 scrollHeight
+  if ($('autoScroll').checked) {
+    requestAnimationFrame(() => {
+      list.scrollTop = list.scrollHeight;
+      // 兜底：某些情况下内容包含图片/异步渲染需要二次校正
+      requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+    });
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== 加载历史日志（批量插入，避免逐条 append 触发多次重排）=====
+async function loadHistoryLogs() {
+  try {
+    const logs = await api('/api/logs');
+    if (logs.length === 0) return;
+    // 暂时禁用自动滚动，批量插入后再统一滚动
+    const list = $('logList');
+    const fragment = document.createDocumentFragment();
+    const wasAutoScroll = $('autoScroll').checked;
+    logs.forEach(entry => {
+      // 复用 addLogEntry 的渲染逻辑，但插入到 fragment 而非直接 append
+      const rendered = renderLogEntry(entry);
+      if (rendered) fragment.appendChild(rendered);
+    });
+    // 移除空状态
+    const empty = list.querySelector('.empty');
+    if (empty && fragment.children.length > 0) empty.remove();
+    list.appendChild(fragment);
+    // 限制日志数量
+    while (list.children.length > 200) list.removeChild(list.firstChild);
+    if (wasAutoScroll) {
+      requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+    }
+  } catch(e) {}
+}
+
+// 将日志渲染逻辑抽离，支持批量插入时复用
+function renderLogEntry(entry) {
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+
+  let badge, header, hex, detail = '';
+  if (entry.type === 'upload') {
+    badge = `<span class="le-badge upload">↑ ${esc(entry.function_name)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span class="le-num">#${esc(entry.packet_num)}</span><span style="font-size:12px;color:var(--muted)">${esc(entry.source_ip)}:${esc(entry.source_port)}</span>`;
+    hex = entry.raw_hex;
+    const fields = (entry.fields||[]).map(f => `${esc(f.name)}=${esc(f.hex)}`).join('  ');
+    detail = `<span>水表:${esc(entry.meter_address_logical)}</span><span>序列号:${esc(entry.sequence)}</span><span>IMEI:${esc(entry.imei)}</span><span>RSRP:${esc(entry.rsrp)}dBm</span><span>SNR:${esc(entry.snr)}</span><span>数据域:${esc(entry.data_length)}B</span>`;
+    if (fields) detail += `<br><span style="font-family:var(--mono);color:var(--accent2)">${fields}</span>`;
+  } else if (entry.type === 'ack') {
+    badge = `<span class="le-badge ack">↓ ${esc(entry.ack_name)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span style="font-size:12px;color:var(--muted)">→ ${esc(entry.target_ip)}:${esc(entry.target_port)}</span>`;
+    hex = entry.raw_hex;
+    const csOk = entry.checksum === entry.checksum_calculated;
+    detail = `<span>ACK功能码:${esc(entry.ack_function_code)}</span><span>序列号:${esc(entry.sequence)}</span><span>数据域:${esc(entry.data_length)}B</span><span class="le-cs ${csOk?'ok':'bad'}">校验和:${esc(entry.checksum.toString(16).toUpperCase().padStart(2,'0'))} ${csOk?'✓':'✗'}</span>`;
+  } else if (entry.type === 'command') {
+    badge = `<span class="le-badge command">↓ ${esc(entry.func_name)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span style="font-size:12px;color:var(--muted)">→ ${esc(entry.target_ip)}:${esc(entry.target_port)}</span>`;
+    hex = entry.raw_hex;
+    const csOk = entry.checksum === entry.checksum_calculated;
+    detail = `<span>功能码:${esc(entry.func_code)}</span><span>序列号:${esc(entry.sequence)}</span><span>数据域:${esc(entry.data_length)}B</span><span class="le-cs ${csOk?'ok':'bad'}">校验和:${esc(entry.checksum.toString(16).toUpperCase().padStart(2,'0'))} ${csOk?'✓':'✗'}</span>`;
+  } else if (entry.type === 'error') {
+    badge = `<span class="le-badge error">✗ 解析失败</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span class="le-num">#${esc(entry.packet_num)}</span><span style="font-size:12px;color:var(--muted)">${esc(entry.source_ip)}:${esc(entry.source_port)}</span>`;
+    hex = entry.raw_hex;
+    detail = `<span style="color:var(--bad)">${esc(entry.error)}</span><span>帧长:${esc(entry.frame_length)}B</span>`;
+  } else if (entry.type === 'ack_error') {
+    badge = `<span class="le-badge ack_error">⚠ ACK发送失败</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span>`;
+    detail = `<span style="color:var(--bad)">${esc(entry.error)}</span>`;
+  } else if (entry.type === 'ack_suppress') {
+    badge = `<span class="le-badge suppress">⊘ ACK抑制 ${esc(entry.suppressed_num)}/${esc(entry.suppress_count)}</span>`;
+    header = `<span class="le-time">${esc(entry.timestamp)}</span><span class="le-num">#${esc(entry.packet_num)}</span><span style="font-size:12px;color:var(--muted)">${esc(entry.source_ip)}:${esc(entry.source_port)}</span>`;
+    detail = `<span>${esc(entry.function_name)}</span><span>序列号:${esc(entry.sequence)}</span><span style="color:var(--warn)">第${esc(entry.suppressed_num)}次不回复ACK</span>`;
+  } else {
+    return null;
+  }
+
+  div.innerHTML = `<div class="le-h">${badge}${header}</div>${detail?'<div class="le-detail">'+detail+'</div>':''}${hex?'<div class="le-hex">'+esc(hex)+'</div>':''}`;
+  return div;
+}
+
+// ===== 初始化 =====
+refreshState();
+refreshRules();
+refreshPending();
+loadCommands();
+loadHistoryLogs();
+connectSSE();
+// SSE 已激活时实时推送状态更新，无需额外轮询。
+// 仅在 SSE 断连期间用低频轮询兜底（30s），重连后由 SSE 接管。
+setInterval(() => { if (!eventSource || eventSource.readyState === EventSource.CLOSED) refreshState(); }, 30000);
+</script>
+</body>
+</html>

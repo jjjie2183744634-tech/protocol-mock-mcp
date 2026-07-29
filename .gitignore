@@ -1,0 +1,4 @@
+﻿__pycache__/
+*.pyc
+logs_*.json
+rules_*.json

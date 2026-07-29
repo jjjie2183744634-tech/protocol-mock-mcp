@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "zibo_mock": {
+      "command": "python",
+      "args": [
+        "c:\\Users\\Administrator\\Documents\\真兰大表\\tools\\mcp_server.py"
+      ]
+    }
+  }
+}

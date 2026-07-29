@@ -1,0 +1,7 @@
+{
+    "protocol": "zibo",
+    "listen_port": 30088,
+    "bind_ip": "0.0.0.0",
+    "web_port": 8090,
+    "auto_reply": true
+}
